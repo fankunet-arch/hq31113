@@ -2,6 +2,9 @@
 /**
  * Toptea HQ - POS Member Settings View
  * Engineer: Gemini | Date: 2025-10-28
+ *
+ * [P4/P2] Added:
+ * - Added Pass Redemption Settings card for pass_free_addon_limit
  */
 ?>
 <div class="row justify-content-center">
@@ -24,18 +27,22 @@
                 </div>
             </div>
 
-            <!-- Placeholder for future settings -->
-            <!--
             <div class="card mb-4">
                 <div class="card-header">
-                    积分兑换设置 (待开发)
+                    次卡核销设置 (P2)
                 </div>
                 <div class="card-body">
-                     <p class="text-muted">积分兑换优惠券等功能将在此配置。</p>
+                    <div class="mb-3">
+                        <label for="pass_free_addon_limit" class="form-label">免费加料上限 (每杯)</label>
+                        <input type="number" step="1" min="0" class="form-control" id="pass_free_addon_limit" name="pass_free_addon_limit" required>
+                        <div class="form-text">
+                            定义次卡核销时，每杯饮品最多可享受的免费加料(free_addon)份数。
+                            <br>
+                            输入 `0` 表示不限制。
+                        </div>
+                    </div>
                 </div>
             </div>
-            -->
-
             <div class="d-flex justify-content-end mt-4">
                 <button type="submit" class="btn btn-primary"><i class="bi bi-save me-2"></i>保存设置</button>
             </div>
