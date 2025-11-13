@@ -2,8 +2,12 @@
 /**
  * Toptea HQ - CPSYS API 注册表 (BMS - POS Management)
  * 注册 POS 菜单、商品、会员、促销等资源
- * Version: 1.5.3 (P4/P2 Task Implementation)
- * Date: 2025-11-13
+ * Version: 1.6.0 (Global Addon Setting Move)
+ * Date: 2025-11-14
+ *
+ * [GEMINI REFACTOR 2025-11-14]:
+ * - Moved 'global_free_addon_limit' from 'pos_settings' handlers
+ * to dedicated 'pos_addons' handlers (get/save_global_settings).
  *
  * [P4/P2] Added:
  * - handle_settings_load() now queries 'pass_free_addon_limit'.
@@ -609,6 +613,41 @@ function handle_addon_delete(PDO $pdo, array $config, array $input_data): void {
     }
 }
 
+// --- [GEMINI REFACTOR 2025-11-14] START: 新增的加料全局设置处理器 ---
+const GLOBAL_ADDON_LIMIT_KEY = 'global_free_addon_limit';
+function handle_addon_get_global_settings(PDO $pdo, array $config, array $input_data): void {
+    $stmt = $pdo->prepare("SELECT setting_value FROM pos_settings WHERE setting_key = ?");
+    $stmt->execute([GLOBAL_ADDON_LIMIT_KEY]);
+    $value = $stmt->fetchColumn();
+    
+    $limit = ($value === false || $value === null) ? '0' : (string)$value;
+    
+    json_ok([GLOBAL_ADDON_LIMIT_KEY => $limit], 'Settings loaded.');
+}
+function handle_addon_save_global_settings(PDO $pdo, array $config, array $input_data): void {
+    // 这个处理器不希望有 'data' 包装
+    $limit_str = $input_data[GLOBAL_ADDON_LIMIT_KEY] ?? null;
+    
+    $intVal = filter_var($limit_str, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+    if ($intVal === false) { 
+        json_error('“免费加料上限”必须是一个大于等于0的整数。', 400); 
+    }
+    $value = (string)$intVal;
+
+    $pdo->beginTransaction();
+    $stmt = $pdo->prepare("INSERT INTO pos_settings (setting_key, setting_value, description) VALUES (:key, :value, :desc) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+    $stmt->execute([
+        ':key' => GLOBAL_ADDON_LIMIT_KEY,
+        ':value' => $value,
+        ':desc' => 'Global limit for free addons per item (0=unlimited)'
+    ]);
+    $pdo->commit();
+    
+    json_ok(null, '全局加料设置已保存！');
+}
+// --- [GEMINI REFACTOR 2025-11-14] END ---
+
+
 // --- [R2.1] START: 处理器: POS 标签 (pos_tags) ---
 function handle_pos_tag_get(PDO $pdo, array $config, array $input_data): void {
     $id = $_GET['id'] ?? json_error('缺少 id', 400);
@@ -901,21 +940,21 @@ function handle_redemption_rule_delete(PDO $pdo, array $config, array $input_dat
 
 // --- 处理器: POS 设置 (pos_settings) ---
 function handle_settings_load(PDO $pdo, array $config, array $input_data): void {
-    // [P4/P2] 修改 SQL
-    $stmt = $pdo->query("SELECT setting_key, setting_value FROM pos_settings WHERE setting_key LIKE 'points_%' OR setting_key = 'pass_free_addon_limit'");
+    // [GEMINI REFACTOR] 修改 SQL (移除 global_free_addon_limit)
+    $stmt = $pdo->query("SELECT setting_key, setting_value FROM pos_settings WHERE setting_key LIKE 'points_%'");
     $settings = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
     
     // 默认值
     if (!isset($settings['points_euros_per_point'])) $settings['points_euros_per_point'] = '1.00';
-    if (!isset($settings['pass_free_addon_limit'])) $settings['pass_free_addon_limit'] = '0';
+    // [GEMINI REFACTOR] 移除 global_free_addon_limit 的默认值
     
     json_ok($settings, 'Settings loaded.');
 }
 function handle_settings_save(PDO $pdo, array $config, array $input_data): void {
     $settings_data = $input_data['settings'] ?? json_error('No settings data provided.', 400);
     
-    // [P4/P2] 白名单
-    $allowed_keys = ['points_euros_per_point', 'pass_free_addon_limit'];
+    // [GEMINI REFACTOR] 修改白名单
+    $allowed_keys = ['points_euros_per_point'];
 
     $pdo->beginTransaction();
     $stmt = $pdo->prepare("INSERT INTO pos_settings (setting_key, setting_value) VALUES (:key, :value) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
@@ -927,17 +966,12 @@ function handle_settings_save(PDO $pdo, array $config, array $input_data): void 
             continue;
         }
 
-        // [P4/P2] 验证与格式化
+        // [GEMINI REFACTOR] 移除 global_free_addon_limit 的验证
         if ($key === 'points_euros_per_point') {
             $floatVal = filter_var($value, FILTER_VALIDATE_FLOAT);
             if ($floatVal === false || $floatVal <= 0) { $pdo->rollBack(); json_error('“每积分所需欧元”必须是一个大于0的数字。', 400); }
             $value = number_format($floatVal, 2, '.', '');
         } 
-        elseif ($key === 'pass_free_addon_limit') {
-            $intVal = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
-            if ($intVal === false) { $pdo->rollBack(); json_error('“免费加料上限”必须是一个大于等于0的整数。', 400); }
-            $value = (string)$intVal;
-        }
         
         $stmt->execute([':key' => $key, ':value' => $value]);
     }
@@ -1196,7 +1230,15 @@ return [
     ],
     'pos_addons' => [
         'table' => 'pos_addons', 'pk' => 'id', 'soft_delete_col' => 'deleted_at', 'auth_role' => ROLE_SUPER_ADMIN,
-        'custom_actions' => [ 'get' => 'handle_addon_get', 'save' => 'handle_addon_save', 'delete' => 'handle_addon_delete', ],
+        'custom_actions' => [ 
+            'get' => 'handle_addon_get', 
+            'save' => 'handle_addon_save', 
+            'delete' => 'handle_addon_delete',
+            // --- [GEMINI REFACTOR 2025-11-14] START: 注册新动作 ---
+            'get_global_settings' => 'handle_addon_get_global_settings',
+            'save_global_settings' => 'handle_addon_save_global_settings',
+            // --- [GEMINI REFACTOR 2025-11-14] END ---
+        ],
     ],
     
     // --- [R2.1] START: 注册 pos_tags ---
@@ -1236,8 +1278,8 @@ return [
     'pos_settings' => [
         'table' => 'pos_settings', 'pk' => 'setting_key', 'soft_delete_col' => null, 'auth_role' => ROLE_SUPER_ADMIN,
         'custom_actions' => [
-            'load' => 'handle_settings_load',
-            'save' => 'handle_settings_save',
+            'load' => 'handle_settings_load', // (已修改)
+            'save' => 'handle_settings_save', // (已修改)
             'load_sif' => 'handle_sif_load',     // <-- 新增 SIF 动作
             'save_sif' => 'handle_sif_save',     // <-- 新增 SIF 动作
         ],

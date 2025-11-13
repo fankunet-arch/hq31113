@@ -1,10 +1,11 @@
 /**
  * Toptea HQ - JavaScript for POS Member Settings Page
  * Engineer: Gemini | Date: 2025-10-28
- * Revision: 1.1.0 (P4/P2 Task Implementation)
+ * Revision: 1.3.0 (Global Addon Limit Refactor - REMOVED)
  *
- * [P4/P2] Added:
- * - Load and save 'pass_free_addon_limit' field.
+ * [GEMINI REFACTOR 2025-11-14]:
+ * - Removed "global_free_addon_limit" logic.
+ * This setting was moved to pos_addon_management.js
  */
 $(document).ready(function() {
 
@@ -14,8 +15,8 @@ $(document).ready(function() {
     const form = $('#member-settings-form');
     const feedbackDiv = $('#settings-feedback');
     const eurosPerPointInput = $('#euros_per_point');
-    // [P4/P2] 新增
-    const passFreeAddonLimitInput = $('#pass_free_addon_limit');
+    
+    // [GEMINI REFACTOR] 移除 globalFreeAddonLimitInput
 
 
     // Function to load settings
@@ -33,10 +34,10 @@ $(document).ready(function() {
             // --- END MOD ---
             success: function(response) {
                 if (response.status === 'success') {
-                    // [P4/P2] 修改
+                    // [GEMINI REFACTOR] 修改
                     const settings = response.data || {};
                     eurosPerPointInput.val(settings.points_euros_per_point || '1.00'); 
-                    passFreeAddonLimitInput.val(settings.pass_free_addon_limit || '0'); // 默认为 0
+                    // [GEMINI REFACTOR] 移除 globalFreeAddonLimitInput.val()
                     
                     feedbackDiv.empty();
                 } else {
@@ -58,10 +59,10 @@ $(document).ready(function() {
         const submitButton = $(this).find('button[type="submit"]');
         submitButton.prop('disabled', true);
 
-        // [P4/P2] 修改
+        // [GEMINI REFACTOR] 修改
         const settingsData = {
-            points_euros_per_point: eurosPerPointInput.val(),
-            pass_free_addon_limit: passFreeAddonLimitInput.val()
+            points_euros_per_point: eurosPerPointInput.val()
+            // [GEMINI REFACTOR] 移除 global_free_addon_limit
         };
 
         $.ajax({
