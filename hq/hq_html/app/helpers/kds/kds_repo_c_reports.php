@@ -455,3 +455,29 @@ if (!function_exists('getAllStoreStock')) {
         return $grouped_stock;
     }
 }
+
+if (!function_exists('getAllPassPlans')) {
+    /**
+     * [FIX] 获取所有次卡方案 (P 阶段)
+     * (index.php: page=pos_pass_plan_management)
+     */
+    function getAllPassPlans(PDO $pdo): array {
+        try {
+            $sql = "
+                SELECT 
+                    pp.*,
+                    COUNT(tpo.topup_order_id) AS total_sold_count,
+                    COUNT(CASE WHEN tpo.review_status = 'pending' THEN 1 END) AS pending_review_count
+                FROM pass_plans pp
+                LEFT JOIN topup_orders tpo ON pp.pass_plan_id = tpo.pass_plan_id
+                WHERE pp.deleted_at IS NULL
+                GROUP BY pp.pass_plan_id
+                ORDER BY pp.name ASC
+            ";
+            return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error getAllPassPlans: " . $e->getMessage());
+            return [];
+        }
+    }
+}

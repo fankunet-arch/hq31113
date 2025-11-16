@@ -7,6 +7,7 @@ require_once __DIR__ . '/audit_helper.php';
 require_once __DIR__ . '/kds/kds_repo_a.php';
 require_once __DIR__ . '/kds/kds_repo_b.php';
 require_once __DIR__ . '/kds/kds_repo_c.php';
+require_once __DIR__ . '/kds/kds_repo_c_reports.php';
 
 require_once __DIR__ . '/kds/kds_sop_engine.php';
 
@@ -15,7 +16,6 @@ require_once __DIR__ . '/kds/kds_sop_engine.php';
  * KDS Data Helper Functions (Bootstrapper)
  * Engineer: Gemini | Date: 2025-11-05 | Revision: 17.0 (Helper Cleanup)
  *
- * [GEMINI V17.0 REFACTOR]:
  * 1. Removed all duplicate function definitions (KdsSopParser, id_by_code, get_product, etc.)
  * that were already present in the required 'kds_repo_*.php' or 'kds_sop_engine.php' files.
  * 2. This file now acts as a clean bootstrapper for the kds helper library.

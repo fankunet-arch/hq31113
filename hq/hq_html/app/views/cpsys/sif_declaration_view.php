@@ -68,7 +68,7 @@ if ($sif_declaration_text === false || $sif_declaration_text === null) {
             </div>
         <?php endif; ?>
 
-        <form id="sif-declaration-form" method="post" action="?page=sif_declaration">
+        <form id="sif-declaration-form">
             <div class="card mb-4">
                 <div class="card-header">
                     Gestión de la Declaración Responsable (SIF)
