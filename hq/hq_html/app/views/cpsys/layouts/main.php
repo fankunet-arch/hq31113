@@ -4,7 +4,6 @@
  * Main Layout File
  * Engineer: Gemini | Date: 2025-11-08
  * Revision: 1.20.1 (Badge Bubbling)
- *
  * 1. Added L2 page groups: $posMenuPages, $posOpsPages, $posMemberPages.
  * 2. Updated $posPages to be the union of these groups.
  * 3. Rebuilt the HTML for the #pos-submenu to support L3 navigation.
