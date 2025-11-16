@@ -23,9 +23,9 @@ function handle_topup_order_review(PDO $pdo, array $config, array $input_data): 
         json_error("订单 (ID: {$order_id}) 状态为 '{$data_before['review_status']}'，无法重复处理。", 409);
     }
     
-    // A2 UTC: 确保所有时间戳使用 0 精度 (Y-m-d H:i:s)
+    // A2 UTC: 确保所有时间戳使用 0 精度 (Y-m-d H:i:s.u)
     // topup_orders.reviewed_at 和 member_passes.activated_at/expires_at 均为 timestamp(0)
-    $now_utc_str = utc_now()->format('Y-m-d H:i:s');
+    $now_utc_str = utc_now()->format('Y-m-d H:i:s.u');
     
     $pdo->beginTransaction();
     try {
@@ -149,7 +149,7 @@ function handle_member_save(PDO $pdo, array $config, array $input_data): void {
 function handle_member_delete(PDO $pdo, array $config, array $input_data): void {
     $id = $input_data['id'] ?? json_error('缺少 id', 400);
     // [A2.2 UTC FIX] 
-    // pos_members.deleted_at 是 timestamp(0)。必须使用 'Y-m-d H:i:s'
+    // pos_members.deleted_at 是 timestamp(0)。必须使用 'Y-m-d H:i:s.u'
     // [GEMINI V3 FIX] 数据库为 datetime(6)，使用 .u
     $now_utc_str = utc_now()->format('Y-m-d H:i:s.u');
     $stmt = $pdo->prepare("UPDATE pos_members SET deleted_at = ? WHERE id = ?");
