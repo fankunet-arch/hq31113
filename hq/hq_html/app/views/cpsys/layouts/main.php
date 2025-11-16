@@ -3,21 +3,16 @@
  * Toptea HQ - cpsys
  * Main Layout File
  * Engineer: Gemini | Date: 2025-11-08
- * Revision: 1.20.1 (Badge Bubbling)
+ * Revision: 1.10.1 (Badge Bubbling)
  *
- * [GEMINI L3 MENU]:
  * 1. Added L2 page groups: $posMenuPages, $posOpsPages, $posMemberPages.
  * 2. Updated $posPages to be the union of these groups.
  * 3. Rebuilt the HTML for the #pos-submenu to support L3 navigation.
+ * 4. Added d-flex layout and notification badge to L1 "POS 管理" link.
+ * 5. Added d-flex layout and notification badge to L2 "运营与报表" link.
+ * 6. Added Chart.js CDN to <head> for dashboard charts.
  *
- * [GEMINI BADGE BUBBLE FIX V1.20.1]:
- * 1. Added d-flex layout and notification badge to L1 "POS 管理" link.
- * 2. Added d-flex layout and notification badge to L2 "运营与报表" link.
- *
- * [GEMINI DASHBOARD V1.0]:
- * 1. Added Chart.js CDN to <head> for dashboard charts.
- *
- * [R-Final] Integrated Seasons Pass (BMS/RMS) menu items.
+ * Integrated Seasons Pass (BMS/RMS) menu items.
  */
 $page_title = $page_title ?? 'TopTea HQ';
 $page = $_GET['page'] ?? 'dashboard';
@@ -213,6 +208,7 @@ $systemPages = [
                                     </a>
                                     <div class="collapse l3-nav <?php echo (in_array($page, $seasonsPassPages)) ? 'show' : ''; ?>" id="pos-pass-submenu">
                                         <ul class="nav flex-column ps-2">
+                                            <li class="nav-item"><a class="nav-link <?php echo ($page === 'pos_pass_plan_management') ? 'active' : ''; ?>" href="index.php?page=pos_pass_plan_management">次卡方案管理 (P)</a></li>
                                             <li class="nav-item"><a class="nav-link <?php echo ($page === 'pos_seasons_pass_dashboard') ? 'active' : ''; ?>" href="index.php?page=pos_seasons_pass_dashboard">次卡数据看板 (B3)</a></li>
                                             <li class="nav-item"><a class="nav-link <?php echo ($page === 'pos_topup_orders') ? 'active' : ''; ?>" href="index.php?page=pos_topup_orders">售卡(VR)审核 (B1)</a></li>
                                             <li class="nav-item"><a class="nav-link <?php echo ($page === 'pos_redemptions_view') ? 'active' : ''; ?>" href="index.php?page=pos_redemptions_view">核销(TP)查询 (B2)</a></li>

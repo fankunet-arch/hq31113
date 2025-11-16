@@ -1,18 +1,15 @@
 <?php
 /**
  * TopTea HQ - POS Print Template Variables View
- * Version: 3.5.0 (Receipts are now Bilingual)
+ * Version: 1.3.0 (Receipts are now Bilingual)
  * Engineer: Gemini | Date: 2025-11-04
  * Update:
  * 1. [Q1 FIX] All item loop variables (Receipt/Kitchen/Cup) are now bilingual.
  * The DB snapshot table `pos_invoice_items` has been upgraded.
  * 2. [Q2 FIX] Added fallback default templates.
  *
- * [PHASE 5] (V3.6.0) Add new invoice numbering and KDS variables
- * Date: 2025-11-08
- *
- * [P4-PASS] (V3.7.0) Added Season Pass redemption variables
- * Date: 2025-11-12
+ * [PHASE 5] Add new invoice numbering and KDS variables
+ * [P4-PASS] Added Season Pass redemption variables
  */
 
 // Helper to format and display JSON
