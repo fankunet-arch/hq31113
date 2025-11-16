@@ -36,7 +36,7 @@ if (!function_exists('getSeasonsPassDashboardKpis')) {
             $stmt_sales = $pdo->query("
                 SELECT COALESCE(SUM(amount_total), 0) 
                 FROM topup_orders 
-                WHERE review_status IN ('confirmed','approved')
+                WHERE review_status = 'confirmed'
             ");
             $total_sales_amount = (float)($stmt_sales ? $stmt_sales->fetchColumn() : 0);
         } catch (Exception $e) { $total_sales_amount = 0.0; error_log("KPI Error (total_sales): ". $e->getMessage()); }

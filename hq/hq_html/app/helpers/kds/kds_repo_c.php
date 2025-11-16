@@ -561,7 +561,7 @@ if (!function_exists('activate_member_pass')) {
             // 3) 更新订单审核状态（最小改动：直接置为 approved）
             $sql_upd = "
                 UPDATE topup_orders
-                SET review_status = 'approved',
+                SET review_status = 'confirmed',
                     reviewed_by_user_id = ?,
                     reviewed_at = ?
                 WHERE topup_order_id = ?
