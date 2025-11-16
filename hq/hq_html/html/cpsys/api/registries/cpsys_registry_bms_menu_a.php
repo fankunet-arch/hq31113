@@ -692,10 +692,10 @@ function handle_pos_tag_delete(PDO $pdo, array $config, array $input_data): void
     // [R2.2] 增加事务，确保 map 表也被删除 (虽然 FK 已设置 CASCADE)
     $pdo->beginTransaction();
     try {
-        // [GEMINI FIX] START: 注释掉对不存在的表的操作
+        // [代码清晰度] 无需手动删除 pos_addon_tag_map, 
+        // 数据库 FK (fk_addon_map_tag) 已设置 ON DELETE CASCADE。
         // $stmt_map = $pdo->prepare("DELETE FROM pos_addon_tag_map WHERE tag_id = ?");
         // $stmt_map->execute([(int)$id]);
-        // [GEMINI FIX] END
         
         $stmt_map_prod = $pdo->prepare("DELETE FROM pos_product_tag_map WHERE tag_id = ?");
         $stmt_map_prod->execute([(int)$id]);
