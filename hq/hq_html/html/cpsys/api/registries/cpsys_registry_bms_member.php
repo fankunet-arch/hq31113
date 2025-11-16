@@ -150,7 +150,8 @@ function handle_member_delete(PDO $pdo, array $config, array $input_data): void 
     $id = $input_data['id'] ?? json_error('缺少 id', 400);
     // [A2.2 UTC FIX] 
     // pos_members.deleted_at 是 timestamp(0)。必须使用 'Y-m-d H:i:s'
-    $now_utc_str = utc_now()->format('Y-m-d H:i:s');
+    // [GEMINI V3 FIX] 数据库为 datetime(6)，使用 .u
+    $now_utc_str = utc_now()->format('Y-m-d H:i:s.u');
     $stmt = $pdo->prepare("UPDATE pos_members SET deleted_at = ? WHERE id = ?");
     $stmt->execute([$now_utc_str, (int)$id]);
     json_ok(null, '会员已成功删除。');
@@ -202,7 +203,8 @@ function handle_redemption_rule_delete(PDO $pdo, array $config, array $input_dat
     $id = $input_data['id'] ?? json_error('缺少 id', 400);
     // [A2.2 UTC FIX] 
     // pos_point_redemption_rules.deleted_at 是 timestamp(0)。必须使用 'Y-m-d H:i:s'
-    $now_utc_str = utc_now()->format('Y-m-d H:i:s');
+    // [GEMINI V3 FIX] 数据库为 datetime(6)，使用 .u
+    $now_utc_str = utc_now()->format('Y-m-d H:i:s.u');
     $stmt = $pdo->prepare("UPDATE pos_point_redemption_rules SET deleted_at = ? WHERE id = ?");
     $stmt->execute([$now_utc_str, (int)$id]);
     json_ok(null, '兑换规则已成功删除。');

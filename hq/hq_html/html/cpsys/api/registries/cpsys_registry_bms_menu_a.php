@@ -91,7 +91,8 @@ function handle_pos_category_delete(PDO $pdo, array $config, array $input_data):
 
     // [A2.2 UTC FIX] 
     // pos_categories.deleted_at 是 timestamp(0)。必须使用 'Y-m-d H:i:s'
-    $now_utc_str = utc_now()->format('Y-m-d H:i:s');
+    // [GEMINI V3 FIX] 数据库为 datetime(6)，使用 .u
+    $now_utc_str = utc_now()->format('Y-m-d H:i:s.u');
     $stmt = $pdo->prepare("UPDATE pos_categories SET deleted_at = ? WHERE id = ?");
     $stmt->execute([$now_utc_str, $id]);
 
@@ -193,7 +194,8 @@ function handle_menu_item_delete(PDO $pdo, array $config, array $input_data): vo
 
     // [A2.2 UTC FIX] 
     // pos_menu_items.deleted_at 和 pos_item_variants.deleted_at 都是 timestamp(0)。
-    $now_utc_str = utc_now()->format('Y-m-d H:i:s');
+    // [GEMINI V3 FIX] 数据库为 datetime(6)，使用 .u
+    $now_utc_str = utc_now()->format('Y-m-d H:i:s.u');
     
     $pdo->beginTransaction();
     $stmt_variants = $pdo->prepare("UPDATE pos_item_variants SET deleted_at = ? WHERE menu_item_id = ?");
@@ -466,7 +468,8 @@ function handle_variant_delete(PDO $pdo, array $config, array $input_data): void
     $id = $input_data['id'] ?? json_error('缺少 id', 400);
     // [A2.2 UTC FIX] 
     // pos_item_variants.deleted_at 是 timestamp(0)。必须使用 'Y-m-d H:i:s'
-    $now_utc_str = utc_now()->format('Y-m-d H:i:s');
+    // [GEMINI V3 FIX] 数据库为 datetime(6)，使用 .u
+    $now_utc_str = utc_now()->format('Y-m-d H:i:s.u');
     $stmt = $pdo->prepare("UPDATE pos_item_variants SET deleted_at = ? WHERE id = ?");
     $stmt->execute([$now_utc_str, (int)$id]);
     json_ok(null, '规格已删除');
@@ -572,7 +575,8 @@ function handle_addon_delete(PDO $pdo, array $config, array $input_data): void {
 
     // [A2.2 UTC FIX] 
     // pos_addons.deleted_at 是 timestamp(0)。必须使用 'Y-m-d H:i:s'
-    $now_utc_str = utc_now()->format('Y-m-d H:i:s');
+    // [GEMINI V3 FIX] 数据库为 datetime(6)，使用 .u
+    $now_utc_str = utc_now()->format('Y-m-d H:i:s.u');
 
     $pdo->beginTransaction();
     try {
