@@ -2,31 +2,22 @@
 /**
  * Toptea HQ - CPSYS 主入口/控制器
  *
- * [A2.1 UTC SYNC]:
  * - 引入了 auth_core.php (session_start(), check_login())
  * - 引入了 datetime_helper.php (utc_now(), fmt_local())
- *
- * [!! 修复 3.1 !!]:
  * - 修复了 kds_sop_rules 和 pos_variants_management 页面中
- *   因 `getAllVariantsByMenuItemId` 函数缺失导致的致命错误。
- *   (该函数仅用于旧版回退，现已从 kds_helper.php 中移除)
+ * 因 `getAllVariantsByMenuItemId` 函数缺失导致的致命错误。
+ * (该函数仅用于旧版回退，现已从 kds_helper.php 中移除)
  * - 临时在 index.php 中补充了此函数的简化版 (fallback) 以防止崩溃。
  * - 补充了 `getKdsProductById` 的 fallback (用于 pos_variants_management)。
- *
- * [!! 修复 3.2 !!]:
  * - 修复了 `getAllVariantsByMenuItemId` fallback 中的 'product_sku' 键名错误。
- *   键名应为 'product_code' (来自 mi.product_code)。
- *
- * [R2-Final] Integrated Seasons Pass (BMS/RMS) routes and data loading:
+ * 键名应为 'product_code' (来自 mi.product_code)。
+ * Integrated Seasons Pass (BMS/RMS) routes and data loading:
  * - Added cases: pos_tag_management, pos_seasons_pass_dashboard, pos_topup_orders, pos_redemptions_view
  * - Modified cases: pos_addon_management, pos_menu_management (to load $all_pos_tags)
- *
  * [R-Final FIX] Removed fatal error call to non-existent function check_login().
  * The require_once 'auth_core.php' already performs the check.
- *
- * [Fix 4.0 JS Bridge]
  * - 新增：在渲染前把 $js_files (array) 映射为旧版 main.php 能识别的 $page_js (string)，
- *   以恢复页面 JS 的加载（编辑弹窗回填等逻辑）。
+ * 以恢复页面 JS 的加载（编辑弹窗回填等逻辑）。
  * - 规则：忽略 http(s) CDN，仅取首个本地相对路径脚本；自动去掉开头斜杠与 "js/" 前缀。
  */
 
@@ -68,7 +59,7 @@ if (!function_exists('getAllVariantsByMenuItemId')) {
      *
      * [!! 修复 3.2 !!] 修正别名说明
      * [Fix 4.0] 兜底：product_sku = COALESCE(p.product_code, mi.product_code)
-     *            recipe_name_zh = COALESCE(pt_zh.product_name, pt_es.product_name)
+     * recipe_name_zh = COALESCE(pt_zh.product_name, pt_es.product_name)
      */
     function getAllVariantsByMenuItemId(PDO $pdo, int $menu_item_id): array {
         $sql = "
