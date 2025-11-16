@@ -468,11 +468,10 @@ if (!function_exists('getAllPassPlans')) {
                     pp.*,
                     COUNT(tpo.topup_order_id) AS total_sold_count,
                     COUNT(CASE WHEN tpo.review_status = 'pending' THEN 1 END) AS pending_review_count
-                FROM pass_plans pp
-                LEFT JOIN topup_orders tpo ON pp.pass_plan_id = tpo.pass_plan_id
-                WHERE pp.deleted_at IS NULL
-                GROUP BY pp.pass_plan_id
-                ORDER BY pp.name ASC
+					FROM pass_plans pp
+                    LEFT JOIN topup_orders tpo ON pp.pass_plan_id = tpo.pass_plan_id
+                    GROUP BY pp.pass_plan_id
+                    ORDER BY pp.name ASC
             ";
             return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
