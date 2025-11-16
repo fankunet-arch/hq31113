@@ -11,6 +11,7 @@ require_once realpath(__DIR__ . '/../../../../app/helpers/datetime_helper.php');
 require_once __DIR__ . '/cpsys_registry_bms_menu_a.php';
 require_once __DIR__ . '/cpsys_registry_bms_menu_b.php';
 require_once __DIR__ . '/cpsys_registry_bms_member.php';
+require_once __DIR__ . '/cpsys_registry_bms_pass_plan.php';
 
 // --- 注册表 ---
 
@@ -67,12 +68,26 @@ return [
         'soft_delete_col' => null, // 假设没有软删除，或使用 status='refunded'
         'auth_role' => ROLE_SUPER_ADMIN, // 假设 R2.4 视图需要
         'custom_actions' => [
-            'review' => 'handle_topup_order_review',
-        ],
-    ],
-    // --- [R2.4] END ---
-    
-    'pos_member_levels' => [
+		'review' => 'handle_topup_order_review',
+			],
+		],
+		// --- [R2.4] END ---
+
+		// --- [P1 修复] START: 注册 pos_pass_plans ---
+		'pos_pass_plans' => [
+			'table' => 'pass_plans',
+			'pk' => 'pass_plan_id',
+			'soft_delete_col' => null, // 注意：此表使用硬删除或 is_active=0
+			'auth_role' => ROLE_ADMIN, // 与 index.php 页面权限匹配
+			'custom_actions' => [
+				'get' => 'handle_pass_plan_get',
+				'save' => 'handle_pass_plan_save',
+				'delete' => 'handle_pass_plan_delete',
+			],
+		],
+		// --- [P1 修复] END ---
+
+		'pos_member_levels' => [
         'table' => 'pos_member_levels', 'pk' => 'id', 'soft_delete_col' => null, 'auth_role' => ROLE_SUPER_ADMIN,
         'custom_actions' => [ 'get' => 'handle_member_level_get', 'save' => 'handle_member_level_save', 'delete' => 'handle_member_level_delete', ],
     ],
