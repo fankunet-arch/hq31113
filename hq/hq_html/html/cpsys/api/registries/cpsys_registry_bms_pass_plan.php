@@ -11,15 +11,18 @@ function sync_tags(PDO $pdo, string $map_table, string $pk_column, $pk_id, strin
     if (!$tag_id) return; // 如果关键标签不存在，则跳过
 
     // 1. 删除此标签在此ID上的所有旧关联
-    $stmt_del = $pdo->prepare("DELETE FROM {$map_table} WHERE {$tag_column} = ? AND {$pk_column} IN (SELECT id FROM pos_menu_items WHERE pos_category_id = ?)");
-    $stmt_del->execute([$tag_id, 9999]); // 假设 9999 是一个安全的、临时的或专用的分类ID
+    // [修复] 更改逻辑：仅删除此标签的关联，而不是所有标签
+    $stmt_del = $pdo->prepare("DELETE FROM {$map_table} WHERE {$tag_column} = ?");
+    $stmt_del->execute([$tag_id]);
 
     // 2. 插入新关联
     if (!empty($item_ids)) {
         $sql_ins = "INSERT INTO {$map_table} ({$pk_column}, {$tag_column}) VALUES (?, ?)";
         $stmt_ins = $pdo->prepare($sql_ins);
         foreach ($item_ids as $item_id) {
-            $stmt_ins->execute([$item_id, $tag_id]);
+            if (filter_var($item_id, FILTER_VALIDATE_INT)) {
+                $stmt_ins->execute([$item_id, $tag_id]);
+            }
         }
     }
 }
@@ -40,14 +43,15 @@ function handle_pass_plan_get(PDO $pdo, array $config, array $input_data): void 
     if (!$response['plan']) {
         json_error('未找到次卡方案', 404);
     }
-    
+
+    // [修复] 从 pass_plans 表中获取 sale_sku
     $sale_sku = $response['plan']['sale_sku'] ?? null;
     if (!$sale_sku) {
          json_ok($response, '方案已加载（但未关联销售SKU）');
          return;
     }
 
-    // 2. 获取关联的 POS 售卖商品
+    // 2. 获取关联的 POS 售卖商品 (使用 product_code 关联)
     $stmt_item = $pdo->prepare("SELECT * FROM pos_menu_items WHERE product_code = ? AND deleted_at IS NULL LIMIT 1");
     $stmt_item->execute([$sale_sku]);
     $response['pos_item'] = $stmt_item->fetch(PDO::FETCH_ASSOC);
@@ -66,21 +70,21 @@ function handle_pass_plan_get(PDO $pdo, array $config, array $input_data): void 
         'free_addon_ids' => [],
         'paid_addon_ids' => []
     ];
-    
+
     // 4.1 可核销饮品 (pos_product_tag_map)
     $stmt_bev = $pdo->prepare("SELECT ptm.product_id FROM pos_product_tag_map ptm JOIN pos_tags t ON ptm.tag_id = t.tag_id WHERE t.tag_code = 'pass_eligible_beverage'");
     $stmt_bev->execute();
-    $response['rules']['eligible_beverage_ids'] = $stmt_bev->fetchAll(PDO::FETCH_COLUMN);
+    $response['rules']['eligible_beverage_ids'] = array_map('intval', $stmt_bev->fetchAll(PDO::FETCH_COLUMN));
 
     // 4.2 免费加料 (pos_addon_tag_map)
     $stmt_free = $pdo->prepare("SELECT atm.addon_id FROM pos_addon_tag_map atm JOIN pos_tags t ON atm.tag_id = t.tag_id WHERE t.tag_code = 'free_addon'");
     $stmt_free->execute();
-    $response['rules']['free_addon_ids'] = $stmt_free->fetchAll(PDO::FETCH_COLUMN);
+    $response['rules']['free_addon_ids'] = array_map('intval', $stmt_free->fetchAll(PDO::FETCH_COLUMN));
 
     // 4.3 付费加料 (pos_addon_tag_map)
     $stmt_paid = $pdo->prepare("SELECT atm.addon_id FROM pos_addon_tag_map atm JOIN pos_tags t ON atm.tag_id = t.tag_id WHERE t.tag_code = 'paid_addon'");
     $stmt_paid->execute();
-    $response['rules']['paid_addon_ids'] = $stmt_paid->fetchAll(PDO::FETCH_COLUMN);
+    $response['rules']['paid_addon_ids'] = array_map('intval', $stmt_paid->fetchAll(PDO::FETCH_COLUMN));
 
     json_ok($response);
 }
@@ -98,7 +102,7 @@ function handle_pass_plan_save(PDO $pdo, array $config, array $input_data): void
     if (!$plan_details || !$sale_settings || !$rules) {
         json_error('请求数据不完整 (缺少 plan_details, sale_settings 或 rules)', 400);
     }
-    
+
     $plan_id = !empty($plan_details['id']) ? (int)$plan_details['id'] : null;
     $sale_sku = trim((string)($sale_settings['sku'] ?? ''));
 
@@ -109,6 +113,7 @@ function handle_pass_plan_save(PDO $pdo, array $config, array $input_data): void
     $pdo->beginTransaction();
     try {
         // --- 1. 保存 pass_plans (方案详情) ---
+        // [修复] 确保 sale_sku 字段被包含
         $plan_params = [
             ':name' => $plan_details['name'],
             ':total_uses' => $plan_details['total_uses'],
@@ -116,10 +121,11 @@ function handle_pass_plan_save(PDO $pdo, array $config, array $input_data): void
             ':max_uses_per_order' => $plan_details['max_uses_per_order'],
             ':max_uses_per_day' => $plan_details['max_uses_per_day'],
             ':is_active' => $plan_details['is_active'],
-            ':sale_sku' => $sale_sku
+            ':sale_sku' => $sale_sku // <-- 确保此字段
         ];
 
         if ($plan_id) {
+            // [修复] 确保 sale_sku 被更新
             $plan_params[':id'] = $plan_id;
             $sql_plan = "UPDATE pass_plans SET 
                             name = :name, total_uses = :total_uses, validity_days = :validity_days, 
@@ -145,15 +151,15 @@ function handle_pass_plan_save(PDO $pdo, array $config, array $input_data): void
         $item_params = [
             ':product_code' => $sale_sku,
             ':name_zh' => $plan_details['name'], // 同步名称
-            ':name_es' => $sale_settings['name_es'] ?? $plan_details['name'], // (如果JS没传，也用方案名)
+            ':name_es' => $plan_details['name'], // [修复] 默认也使用方案名
             ':pos_category_id' => $sale_settings['category_id'],
             ':is_active' => $plan_details['is_active'], // 同步状态
         ];
-        
+
         if ($menu_item_id) {
             $item_params[':id'] = $menu_item_id;
             $sql_item = "UPDATE pos_menu_items SET 
-                            name_zh = :name_zh, name_es = :name_es, pos_category_id = :pos_category_id, is_active = :is_active 
+                            name_zh = :name_zh, name_es = :name_es, pos_category_id = :pos_category_id, is_active = :is_active, product_code = :product_code
                          WHERE id = :id";
         } else {
             $sql_item = "INSERT INTO pos_menu_items 
@@ -165,7 +171,7 @@ function handle_pass_plan_save(PDO $pdo, array $config, array $input_data): void
         if (!$menu_item_id) {
             $menu_item_id = (int)$pdo->lastInsertId();
         }
-        
+
         // 2.1 确保售卖商品被打上 'pass_product' 标签
         $tag_id_pass_product = $sale_settings['tag_id_pass_product'] ?? null;
         if ($tag_id_pass_product) {
@@ -194,11 +200,10 @@ function handle_pass_plan_save(PDO $pdo, array $config, array $input_data): void
         $pdo->prepare($sql_var)->execute($var_params);
 
         // --- 4. 同步核销规则 (标签) ---
-        // (注意: 此处实现为全局同步，而非按 Plan ID 同步)
-        
+
         // 4.1 可核销饮品
         sync_tags($pdo, 'pos_product_tag_map', 'product_id', $menu_item_id, 'tag_id', $rules['tag_id_eligible_bev'] ?? null, $rules['eligible_beverage_ids'] ?? []);
-        
+
         // 4.2 免费加料
         sync_tags($pdo, 'pos_addon_tag_map', 'addon_id', $menu_item_id, 'tag_id', $rules['tag_id_free_addon'] ?? null, $rules['free_addon_ids'] ?? []);
 
@@ -215,7 +220,7 @@ function handle_pass_plan_save(PDO $pdo, array $config, array $input_data): void
 }
 
 /**
- * 处理器: [P] 删除次卡方案 (硬删除)
+ * 处理器: [P] 删除次卡方案 (软删除方案，硬删除关联商品)
  */
 function handle_pass_plan_delete(PDO $pdo, array $config, array $input_data): void {
     $plan_id = $input_data['id'] ?? json_error('缺少 id', 400);
@@ -228,32 +233,35 @@ function handle_pass_plan_delete(PDO $pdo, array $config, array $input_data): vo
         $stmt_find->execute([$plan_id]);
         $sale_sku = $stmt_find->fetchColumn();
 
-        // 2. 删除 pass_plan (必须先删这个，否则 FK 会阻止删除 menu_item)
-        $stmt_del_plan = $pdo->prepare("DELETE FROM pass_plans WHERE pass_plan_id = ?");
+        // 2. 软删除 pass_plan (设置为 inactive, 并添加 deleted_at)
+        // [修复] 检查 pass_plans 表结构，它没有 deleted_at，所以我们只设置 is_active = 0
+        $stmt_del_plan = $pdo->prepare("UPDATE pass_plans SET is_active = 0 WHERE pass_plan_id = ?");
         $stmt_del_plan->execute([$plan_id]);
 
-        // 3. 删除关联的 pos_menu_item (如果存在)
+        // 3. 软删除关联的 pos_menu_item (如果存在)
         if ($sale_sku) {
             $stmt_find_item = $pdo->prepare("SELECT id FROM pos_menu_items WHERE product_code = ? AND deleted_at IS NULL");
             $stmt_find_item->execute([$sale_sku]);
             $menu_item_id = $stmt_find_item->fetchColumn();
-            
+
             if ($menu_item_id) {
-                // 使用软删除 (更安全)
-                $now_utc_str = utc_now()->format('Y-m-d H:i:s');
+                $now_utc_str = utc_now()->format('Y-m-d H:i:s'); // 用于 pos_menu_items 的 deleted_at
+
+                // 软删除 variant
                 $stmt_del_var = $pdo->prepare("UPDATE pos_item_variants SET deleted_at = ? WHERE menu_item_id = ?");
                 $stmt_del_var->execute([$now_utc_str, $menu_item_id]);
-                
+
+                // 软删除 menu item
                 $stmt_del_item = $pdo->prepare("UPDATE pos_menu_items SET deleted_at = ? WHERE id = ?");
                 $stmt_del_item->execute([$now_utc_str, $menu_item_id]);
             }
         }
-        
+
         $pdo->commit();
-        json_ok(null, '次卡方案已成功删除。');
+        json_ok(null, '次卡方案已成功删除（下架）。');
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        // 检查是否为 FK 约束失败 (例如：该方案已售出)
+        // 检查是否为 FK 约束失败 (例如：该方案已被购买)
         if ($e instanceof PDOException && $e->errorInfo[1] == 1451) {
              json_error('删除失败：此方案已被会员购买，无法删除。请将其设为“下架”。', 409);
         }
