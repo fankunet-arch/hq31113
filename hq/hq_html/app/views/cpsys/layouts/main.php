@@ -3,7 +3,7 @@
  * Toptea HQ - cpsys
  * Main Layout File
  * Engineer: Gemini | Date: 2025-11-08
- * Revision: 1.10.1 (Badge Bubbling)
+ * Revision: 1.20.1 (Badge Bubbling)
  *
  * 1. Added L2 page groups: $posMenuPages, $posOpsPages, $posMemberPages.
  * 2. Updated $posPages to be the union of these groups.
@@ -11,8 +11,8 @@
  * 4. Added d-flex layout and notification badge to L1 "POS 管理" link.
  * 5. Added d-flex layout and notification badge to L2 "运营与报表" link.
  * 6. Added Chart.js CDN to <head> for dashboard charts.
- *
  * Integrated Seasons Pass (BMS/RMS) menu items.
+ * Added pos_pass_plan_management to menu definitions.
  */
 $page_title = $page_title ?? 'TopTea HQ';
 $page = $_GET['page'] ?? 'dashboard';
@@ -45,6 +45,7 @@ $posMemberPages = [
 
 // [R-Final] 新增次卡组
 $seasonsPassPages = [
+    'pos_pass_plan_management', // [GEMINI P-FIX]
     'pos_seasons_pass_dashboard', // B3
     'pos_topup_orders', // B1
     'pos_redemptions_view' // B2
