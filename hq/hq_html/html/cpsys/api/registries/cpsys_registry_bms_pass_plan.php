@@ -2,22 +2,44 @@
 /**
  * CPSYS BMS Registry - Pass Plan Handlers (P)
  * [ 修复 ] 补全缺失的 'pos_pass_plans' 资源处理器
+ * - 修复了 handle_pass_plan_save 函数在 (INSERT) 
+ * 分支中 $plan_params 数组缺少 :auto_activate 参数的问题。
+ * - 修复了 sync_tags 函数中的逻辑 Bug，
+ * 该 Bug 会导致所有关联项被删除，而不是仅删除当前方案的关联项。
  */
 
 /**
  * 内部助手：根据标签代码和 ID 列表，同步标签表
+ * [GEMINI LOGIC BUG FIX v1.1]
+ * 修复了此函数会删除 *所有* 关联此标签（如 pass_eligible_beverage）
+ * 的项目，而不是仅删除此方案关联的项目。
+ *
+ * @param PDO $pdo
+ * @param string $map_table (e.g., pos_product_tag_map)
+ * @param string $pk_column (e.g., product_id)
+ * @param string $tag_column (e.g., tag_id)
+ * @param int $tag_id (e.g., 2)
+ * @param array $item_ids (e.g., [1, 2, 5])
+ * @return void
  */
-function sync_tags(PDO $pdo, string $map_table, string $pk_column, $pk_id, string $tag_column, $tag_id, array $item_ids) {
+function sync_tags(PDO $pdo, string $map_table, string $pk_column, string $tag_column, $tag_id, array $item_ids) {
     if (!$tag_id) return; // 如果关键标签不存在，则跳过
 
-    // 1. 删除此标签在此ID上的所有旧关联
-    // [修复] 更改逻辑：仅删除此标签的关联，而不是所有标签
-    $stmt_del = $pdo->prepare("DELETE FROM {$map_table} WHERE {$tag_column} = ?");
-    $stmt_del->execute([$tag_id]);
+    // 1. [FIX] 仅删除此标签在此 ID 列表 *之外* 的旧关联 (如果它们之前被错误关联了)
+    // 并且仅删除此标签的
+    $placeholders = !empty($item_ids) ? implode(',', array_fill(0, count($item_ids), '?')) : 'NULL';
+    
+    // 删除不再列表中的
+    $sql_del = "DELETE FROM {$map_table} 
+                WHERE {$tag_column} = ? 
+                AND {$pk_column} NOT IN ({$placeholders})";
+                
+    $del_params = array_merge([$tag_id], $item_ids);
+    $pdo->prepare($sql_del)->execute($del_params);
 
-    // 2. 插入新关联
+    // 2. 插入新关联 (使用 INSERT IGNORE 避免重复)
     if (!empty($item_ids)) {
-        $sql_ins = "INSERT INTO {$map_table} ({$pk_column}, {$tag_column}) VALUES (?, ?)";
+        $sql_ins = "INSERT IGNORE INTO {$map_table} ({$pk_column}, {$tag_column}) VALUES (?, ?)";
         $stmt_ins = $pdo->prepare($sql_ins);
         foreach ($item_ids as $item_id) {
             if (filter_var($item_id, FILTER_VALIDATE_INT)) {
@@ -26,6 +48,7 @@ function sync_tags(PDO $pdo, string $map_table, string $pk_column, $pk_id, strin
         }
     }
 }
+
 
 /**
  * 处理器: [P] 获取单个次卡方案的完整配置
@@ -113,7 +136,6 @@ function handle_pass_plan_save(PDO $pdo, array $config, array $input_data): void
     $pdo->beginTransaction();
     try {
         // --- 1. 保存 pass_plans (方案详情) ---
-        // [修复] 确保 sale_sku 字段被包含
         $plan_params = [
             ':name' => $plan_details['name'],
             ':total_uses' => $plan_details['total_uses'],
@@ -121,22 +143,24 @@ function handle_pass_plan_save(PDO $pdo, array $config, array $input_data): void
             ':max_uses_per_order' => $plan_details['max_uses_per_order'],
             ':max_uses_per_day' => $plan_details['max_uses_per_day'],
             ':is_active' => $plan_details['is_active'],
-            ':sale_sku' => $sale_sku // <-- 确保此字段
+            ':auto_activate' => $plan_details['auto_activate'], // [GEMINI HY093 FIX]
+            ':sale_sku' => $sale_sku
         ];
 
         if ($plan_id) {
-            // [修复] 确保 sale_sku 被更新
+            // 更新
             $plan_params[':id'] = $plan_id;
             $sql_plan = "UPDATE pass_plans SET 
                             name = :name, total_uses = :total_uses, validity_days = :validity_days, 
                             max_uses_per_order = :max_uses_per_order, max_uses_per_day = :max_uses_per_day,
-                            is_active = :is_active, sale_sku = :sale_sku
+                            is_active = :is_active, auto_activate = :auto_activate, sale_sku = :sale_sku
                          WHERE pass_plan_id = :id";
         } else {
+            // 新增
             $sql_plan = "INSERT INTO pass_plans 
-                            (name, total_uses, validity_days, max_uses_per_order, max_uses_per_day, is_active, sale_sku) 
+                            (name, total_uses, validity_days, max_uses_per_order, max_uses_per_day, is_active, auto_activate, sale_sku) 
                          VALUES 
-                            (:name, :total_uses, :validity_days, :max_uses_per_order, :max_uses_per_day, :is_active, :sale_sku)";
+                            (:name, :total_uses, :validity_days, :max_uses_per_order, :max_uses_per_day, :is_active, :auto_activate, :sale_sku)";
         }
         $pdo->prepare($sql_plan)->execute($plan_params);
         if (!$plan_id) {
@@ -151,7 +175,7 @@ function handle_pass_plan_save(PDO $pdo, array $config, array $input_data): void
         $item_params = [
             ':product_code' => $sale_sku,
             ':name_zh' => $plan_details['name'], // 同步名称
-            ':name_es' => $plan_details['name'], // [修复] 默认也使用方案名
+            ':name_es' => $plan_details['name'], // 默认也使用方案名
             ':pos_category_id' => $sale_settings['category_id'],
             ':is_active' => $plan_details['is_active'], // 同步状态
         ];
@@ -201,14 +225,14 @@ function handle_pass_plan_save(PDO $pdo, array $config, array $input_data): void
 
         // --- 4. 同步核销规则 (标签) ---
 
-        // 4.1 可核销饮品
-        sync_tags($pdo, 'pos_product_tag_map', 'product_id', $menu_item_id, 'tag_id', $rules['tag_id_eligible_bev'] ?? null, $rules['eligible_beverage_ids'] ?? []);
+        // 4.1 可核销饮品 (pk_column = product_id)
+        sync_tags($pdo, 'pos_product_tag_map', 'product_id', 'tag_id', $rules['tag_id_eligible_bev'] ?? null, $rules['eligible_beverage_ids'] ?? []);
 
-        // 4.2 免费加料
-        sync_tags($pdo, 'pos_addon_tag_map', 'addon_id', $menu_item_id, 'tag_id', $rules['tag_id_free_addon'] ?? null, $rules['free_addon_ids'] ?? []);
+        // 4.2 免费加料 (pk_column = addon_id)
+        sync_tags($pdo, 'pos_addon_tag_map', 'addon_id', 'tag_id', $rules['tag_id_free_addon'] ?? null, $rules['free_addon_ids'] ?? []);
 
-        // 4.3 付费加料
-        sync_tags($pdo, 'pos_addon_tag_map', 'addon_id', $menu_item_id, 'tag_id', $rules['tag_id_paid_addon'] ?? null, $rules['paid_addon_ids'] ?? []);
+        // 4.3 付费加料 (pk_column = addon_id)
+        sync_tags($pdo, 'pos_addon_tag_map', 'addon_id', 'tag_id', $rules['tag_id_paid_addon'] ?? null, $rules['paid_addon_ids'] ?? []);
 
         $pdo->commit();
         json_ok(['id' => $plan_id], '次卡方案已成功保存。');
@@ -245,7 +269,8 @@ function handle_pass_plan_delete(PDO $pdo, array $config, array $input_data): vo
             $menu_item_id = $stmt_find_item->fetchColumn();
 
             if ($menu_item_id) {
-                $now_utc_str = utc_now()->format('Y-m-d H:i:s'); // 用于 pos_menu_items 的 deleted_at
+                // [GEMINI V3 FIX] 使用 .u 匹配 datetime(6)
+                $now_utc_str = utc_now()->format('Y-m-d H:i:s.u'); 
 
                 // 软删除 variant
                 $stmt_del_var = $pdo->prepare("UPDATE pos_item_variants SET deleted_at = ? WHERE menu_item_id = ?");
