@@ -304,6 +304,26 @@ try {
             break;
         // --- [R2-Final] END ---
 
+		case 'pos_pass_plan_management': // [P1 修复] 新增次卡方案 (P) 路由
+        check_role(ROLE_ADMIN); // 假设 Admin 权限
+        $page_title = '次卡方案管理 (P)';
+        $js_files[] = 'pos_pass_plan_management.js';
+
+        // 从 view 文件 (pos_pass_plan_management_view.php) 分析依赖
+        if (!function_exists('getAllPassPlans')) {
+            $data['pass_plans'] = []; 
+            error_log("FATAL: getAllPassPlans() is not defined. Cannot load page pos_pass_plan_management.");
+        } else {
+            $data['pass_plans'] = getAllPassPlans($pdo);
+        }
+        $data['all_pos_tags'] = getAllPosTags($pdo);
+        $data['all_menu_items'] = getAllMenuItems($pdo, null);
+        $data['all_pos_addons'] = getAllPosAddons($pdo);
+        $data['pos_categories'] = getAllPosCategories($pdo);
+
+        $view_path = realpath(__DIR__ . '/../../app/views/cpsys/pos_pass_plan_management_view.php');
+        break;
+
         case 'pos_promotion_management':
             check_role(ROLE_PRODUCT_MANAGER);
             $page_title = '营销活动管理';
