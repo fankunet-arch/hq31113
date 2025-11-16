@@ -1,7 +1,6 @@
 <?php
 /**
  * Toptea HQ - CPSYS API 注册表 (BMS - POS Management)
- * ...
  */
 
 require_once realpath(__DIR__ . '/../../../../app/helpers/kds_helper.php');

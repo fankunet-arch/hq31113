@@ -12,6 +12,7 @@ function handle_pos_category_get(PDO $pdo, array $config, array $input_data): vo
     $data = $stmt->fetch(PDO::FETCH_ASSOC);
     $data ? json_ok($data) : json_error('未找到分类', 404);
 }
+
 function handle_pos_category_save(PDO $pdo, array $config, array $input_data): void {
     $data = $input_data['data'] ?? json_error('缺少 data', 400);
     $id = $data['id'] ? (int)$data['id'] : null;
@@ -30,22 +31,44 @@ function handle_pos_category_save(PDO $pdo, array $config, array $input_data): v
         $action_name = 'rms.category.update';
     }
 
-    $sql_check = "SELECT id FROM pos_categories WHERE category_code = ? AND deleted_at IS NULL" . ($id ? " AND id != ?" : "");
-    $params_check = $id ? [$code, $id] : [$code];
-    $stmt_check = $pdo->prepare($sql_check);
-    $stmt_check->execute($params_check);
-    if ($stmt_check->fetch()) json_error('分类编码 "' . htmlspecialchars($code) . '" 已被使用。', 409);
+    // --- [GEMINI REPAIR START] ---
+    // 1. 检查是否存在 *活动* 记录 (用于 409 冲突)
+    $sql_check_active = "SELECT id FROM pos_categories WHERE category_code = ? AND deleted_at IS NULL" . ($id ? " AND id != ?" : "");
+    $params_check_active = $id ? [$code, $id] : [$code];
+    $stmt_check_active = $pdo->prepare($sql_check_active);
+    $stmt_check_active->execute($params_check_active);
+    if ($stmt_check_active->fetch()) {
+        json_error('分类编码 "' . htmlspecialchars($code) . '" 已被使用。', 409);
+    }
 
     if ($id) {
+        // 更新现有记录 (ID 已知)
         $stmt = $pdo->prepare("UPDATE pos_categories SET category_code = ?, name_zh = ?, name_es = ?, sort_order = ? WHERE id = ?");
         $stmt->execute([$code, $name_zh, $name_es, $sort, $id]);
         $message = '分类已成功更新！';
     } else {
-        $stmt = $pdo->prepare("INSERT INTO pos_categories (category_code, name_zh, name_es, sort_order) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$code, $name_zh, $name_es, $sort]);
-        $id = (int)$pdo->lastInsertId();
-        $message = '新分类已成功创建！';
+        // 2. 检查是否存在 *已删除* 记录 (用于恢复)
+        $stmt_check_deleted = $pdo->prepare("SELECT id FROM pos_categories WHERE category_code = ? AND deleted_at IS NOT NULL");
+        $stmt_check_deleted->execute([$code]);
+        $deleted_id = $stmt_check_deleted->fetchColumn();
+
+        if ($deleted_id) {
+            // 3. 恢复 (Update) 软删除的记录
+            $id = (int)$deleted_id; // 获取要恢复的 ID
+            $stmt = $pdo->prepare("UPDATE pos_categories SET name_zh = ?, name_es = ?, sort_order = ?, deleted_at = NULL WHERE id = ?");
+            $stmt->execute([$name_zh, $name_es, $sort, $id]);
+            $message = '分类已成功恢复！';
+            $action_name = 'rms.category.restore'; // [R2] 审计动词
+        } else {
+            // 4. 插入 (Insert) 全新记录
+            $stmt = $pdo->prepare("INSERT INTO pos_categories (category_code, name_zh, name_es, sort_order) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$code, $name_zh, $name_es, $sort]);
+            $id = (int)$pdo->lastInsertId();
+            $message = '新分类已成功创建！';
+            // $action_name 默认为 'rms.category.create'
+        }
     }
+    // --- [GEMINI REPAIR END] ---
 
     // [R2] 审计：写入日志
     if (!function_exists('getPosCategoryById')) json_error('审计失败: 缺少 getPosCategoryById 助手。', 500);
@@ -54,6 +77,7 @@ function handle_pos_category_save(PDO $pdo, array $config, array $input_data): v
 
     json_ok(['id' => $id], $message);
 }
+
 function handle_pos_category_delete(PDO $pdo, array $config, array $input_data): void {
     $id = $input_data['id'] ?? json_error('缺少 id', 400);
     $id = (int)$id;
@@ -664,8 +688,10 @@ function handle_pos_tag_delete(PDO $pdo, array $config, array $input_data): void
     // [R2.2] 增加事务，确保 map 表也被删除 (虽然 FK 已设置 CASCADE)
     $pdo->beginTransaction();
     try {
-        $stmt_map = $pdo->prepare("DELETE FROM pos_addon_tag_map WHERE tag_id = ?");
-        $stmt_map->execute([(int)$id]);
+        // [GEMINI FIX] START: 注释掉对不存在的表的操作
+        // $stmt_map = $pdo->prepare("DELETE FROM pos_addon_tag_map WHERE tag_id = ?");
+        // $stmt_map->execute([(int)$id]);
+        // [GEMINI FIX] END
         
         $stmt_map_prod = $pdo->prepare("DELETE FROM pos_product_tag_map WHERE tag_id = ?");
         $stmt_map_prod->execute([(int)$id]);
