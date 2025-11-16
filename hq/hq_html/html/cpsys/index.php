@@ -14,11 +14,13 @@
  * Integrated Seasons Pass (BMS/RMS) routes and data loading:
  * - Added cases: pos_tag_management, pos_seasons_pass_dashboard, pos_topup_orders, pos_redemptions_view
  * - Modified cases: pos_addon_management, pos_menu_management (to load $all_pos_tags)
- * [R-Final FIX] Removed fatal error call to non-existent function check_login().
+ * Removed fatal error call to non-existent function check_login().
  * The require_once 'auth_core.php' already performs the check.
  * - 新增：在渲染前把 $js_files (array) 映射为旧版 main.php 能识别的 $page_js (string)，
  * 以恢复页面 JS 的加载（编辑弹窗回填等逻辑）。
  * - 规则：忽略 http(s) CDN，仅取首个本地相对路径脚本；自动去掉开头斜杠与 "js/" 前缀。
+ *
+ * Added pos_pass_plan_management to router case.
  */
 
 // --- 1. 核心引导 ---
@@ -278,6 +280,24 @@ try {
             // 视图名修正：pos_tag_management_view.php -> pos_tags_management_view.php
             $view_path = realpath(__DIR__ . '/../../app/views/cpsys/pos_tags_management_view.php');
             break;
+
+        // --- [GEMINI P-FIX] START: 新增次卡方案管理页面 (P) ---
+        case 'pos_pass_plan_management':
+            check_role(ROLE_ADMIN);
+            $page_title = '次卡方案管理 (P)';
+            $js_files[] = 'pos_pass_plan_management.js';
+            // 加载此页面所需的数据
+            $data['pass_plans'] = getAllPassPlans($pdo);
+            // 用于“销售设置”
+            $data['pos_categories'] = getAllPosCategories($pdo);
+            // 用于“核销规则” - 可核销的饮品
+            $data['all_menu_items'] = getAllMenuItems($pdo); 
+            // 用于“核销规则” - 免费/付费加料
+            $data['all_pos_addons'] = getAllPosAddons($pdo); 
+            $data['all_pos_tags'] = getAllPosTags($pdo);
+            $view_path = realpath(__DIR__ . '/../../app/views/cpsys/pos_pass_plan_management_view.php');
+            break;
+        // --- [GEMINI P-FIX] END ---
 
         case 'pos_seasons_pass_dashboard': // B3
             check_role(ROLE_ADMIN);
