@@ -1,25 +1,21 @@
 <?php
 /**
  * KDS Repo C - Dicts + Ops (Phase 2 consolidation)
- * V7 (2025-11-13):
  * - [R2/B1] Added getTopupOrderById() for auditing.
- * V6 (2025-11-13):
  * - [R2] Added getPosMenuItemById() for auditing.
- * V5 (2025-11-13):
  * - [R2] Added getPosCategoryById() for auditing.
  * - [R2] Added getPosAddonById() for auditing.
- * V4 (2025-11-12):
- * - [GEMINI FIX] 修复 getAllCups() SQL (不再 join 不存在的 translations 表, 直接从 kds_cups 读取)
- * - [GEMINI FIX] 修复 getAllIceOptions() 函数名 (移除 "Active")
- * - [GEMINI FIX] 修复 getAllPosTags/getTagById SQL (使用 tag_name 字段)
- * - [GEMINI FIX] 修复 getProductTagIds/getAddonTagIds SQL (使用正确的 _map 表名)
- * - [GEMINI FIX] 添加缺失的 getCupById() 函数
+ * - 修复 getAllCups() SQL (不再 join 不存在的 translations 表, 直接从 kds_cups 读取)
+ * - 修复 getAllIceOptions() 函数名 (移除 "Active")
+ * - 修复 getAllPosTags/getTagById SQL (使用 tag_name 字段)
+ * - 修复 getProductTagIds/getAddonTagIds SQL (使用正确的 _map 表名)
+ * - 添加缺失的 getCupById() 函数
  * - 合并了 V2/V3 的所有补丁 (Dashboard / Shift / EOD / Stock / Invoice / Pass 函数)
  */
 
 /** ========== Ice / Sweet / Cup / Addon ========== */
 
-// [GEMINI FIX] 重命名 getAllActiveIceOptions -> getAllIceOptions
+// 重命名 getAllActiveIceOptions -> getAllIceOptions
 if (!function_exists('getAllIceOptions')) {
     function getAllIceOptions(PDO $pdo): array {
         $sql = "SELECT i.id, i.ice_code, it_zh.ice_option_name AS name_zh, it_es.ice_option_name AS name_es, it_zh.sop_description AS sop_zh
