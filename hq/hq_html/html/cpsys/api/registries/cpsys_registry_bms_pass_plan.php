@@ -239,17 +239,23 @@ function handle_pass_plan_save(PDO $pdo, array $config, array $input_data): void
         $stmt_find_var->execute([$menu_item_id]);
         $variant_id = $stmt_find_var->fetchColumn();
 
-        $var_params = [
-            ':menu_item_id' => $menu_item_id,
-            ':price_eur' => $sale_settings['price'],
-            ':name_zh' => '次卡',
-            ':name_es' => 'Pase'
-        ];
-
         if ($variant_id) {
-            $var_params[':id'] = $variant_id;
+            // 更新现有规格
+            $var_params = [
+                ':price_eur' => $sale_settings['price'],
+                ':name_zh' => '次卡',
+                ':name_es' => 'Pase',
+                ':id' => $variant_id
+            ];
             $sql_var = "UPDATE pos_item_variants SET price_eur = :price_eur, variant_name_zh = :name_zh, variant_name_es = :name_es WHERE id = :id";
         } else {
+            // 创建新规格
+            $var_params = [
+                ':menu_item_id' => $menu_item_id,
+                ':price_eur' => $sale_settings['price'],
+                ':name_zh' => '次卡',
+                ':name_es' => 'Pase'
+            ];
             $sql_var = "INSERT INTO pos_item_variants (menu_item_id, price_eur, variant_name_zh, variant_name_es, is_default, sort_order) VALUES (:menu_item_id, :price_eur, :name_zh, :name_es, 1, 1)";
         }
         $pdo->prepare($sql_var)->execute($var_params);
