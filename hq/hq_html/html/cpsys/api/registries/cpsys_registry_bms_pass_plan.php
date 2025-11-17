@@ -128,22 +128,30 @@ function handle_pass_plan_save(PDO $pdo, array $config, array $input_data): void
 
     $plan_id = !empty($plan_details['id']) ? (int)$plan_details['id'] : null;
     $sale_sku = trim((string)($sale_settings['sku'] ?? ''));
+    
+    // [修改] 读取双语名称
+    $name_zh = trim($plan_details['name_zh'] ?? '');
+    $name_es = trim($plan_details['name_es'] ?? $name_zh); // 如果西语为空，回退到中文
 
     if (empty($sale_sku)) {
         json_error('售卖 SKU (P-Code) 不能为空。', 400);
     }
+    if (empty($name_zh)) {
+        json_error('方案名称 (ZH) 不能为空。', 400);
+    }
+
 
     $pdo->beginTransaction();
     try {
         // --- 1. 保存 pass_plans (方案详情) ---
         $plan_params = [
-            ':name' => $plan_details['name'],
+            ':name' => $name_zh, // pass_plans.name 存储中文名
             ':total_uses' => $plan_details['total_uses'],
             ':validity_days' => $plan_details['validity_days'],
             ':max_uses_per_order' => $plan_details['max_uses_per_order'],
             ':max_uses_per_day' => $plan_details['max_uses_per_day'],
             ':is_active' => $plan_details['is_active'],
-            ':auto_activate' => $plan_details['auto_activate'], // [GEMINI HY093 FIX]
+            ':auto_activate' => $plan_details['auto_activate'] ?? 0, // [GEMINI HY093 FIX]
             ':sale_sku' => $sale_sku
         ];
 
@@ -174,8 +182,8 @@ function handle_pass_plan_save(PDO $pdo, array $config, array $input_data): void
 
         $item_params = [
             ':product_code' => $sale_sku,
-            ':name_zh' => $plan_details['name'], // 同步名称
-            ':name_es' => $plan_details['name'], // 默认也使用方案名
+            ':name_zh' => $name_zh, // [修改] 同步中文名称
+            ':name_es' => $name_es, // [修改] 同步西班牙语名称
             ':pos_category_id' => $sale_settings['category_id'],
             ':is_active' => $plan_details['is_active'], // 同步状态
         ];

@@ -102,6 +102,36 @@ function handle_pos_category_delete(PDO $pdo, array $config, array $input_data):
     json_ok(null, '分类已成功删除。');
 }
 
+/**
+ * [内部助手] 检查一个 menu_item_id 或 product_code 是否被次卡系统锁定
+ */
+function is_pass_product_locked(PDO $pdo, ?int $menu_item_id, ?string $product_code): bool {
+    if ($menu_item_id === null && $product_code === null) {
+        return false;
+    }
+    
+    $sql = "SELECT pp.pass_plan_id 
+            FROM pass_plans pp
+            JOIN pos_menu_items mi ON pp.sale_sku = mi.product_code
+            WHERE pp.is_active = 1 AND mi.deleted_at IS NULL";
+    
+    $params = [];
+    if ($menu_item_id !== null) {
+        $sql .= " AND mi.id = ?";
+        $params[] = $menu_item_id;
+    } else {
+        $sql .= " AND mi.product_code = ?";
+        $params[] = $product_code;
+    }
+    
+    $stmt = $pdo->prepare($sql . " LIMIT 1");
+    $stmt->execute($params);
+    
+    // 如果能查到记录，说明它是一个激活的次卡售卖商品，应被锁定
+    return $stmt->fetchColumn() !== false;
+}
+
+
 // --- 处理器: POS 菜单商品 (pos_menu_items) ---
 function handle_menu_item_get(PDO $pdo, array $config, array $input_data): void {
     $id = $_GET['id'] ?? json_error('缺少 id', 400);
@@ -115,6 +145,15 @@ function handle_menu_item_get(PDO $pdo, array $config, array $input_data): void 
 function handle_menu_item_save(PDO $pdo, array $config, array $input_data): void {
     $data = $input_data['data'] ?? json_error('缺少 data', 400);
     $id = $data['id'] ? (int)$data['id'] : null;
+    
+    // [冲突解决] 检查此商品是否为“次卡商品”
+    if ($id && is_pass_product_locked($pdo, $id, null)) {
+        json_error(
+            '操作被禁止：此商品是一个激活的“次卡售卖商品”。请前往 [POS 管理] -> [会员次卡] -> [次卡方案管理] 页面进行修改，以确保数据一致性。',
+            403 // 403 Forbidden
+        );
+    }
+
     $params = [
         ':name_zh' => trim($data['name_zh']),
         ':name_es' => trim($data['name_es']),
@@ -190,6 +229,14 @@ function handle_menu_item_delete(PDO $pdo, array $config, array $input_data): vo
     $data_before = getPosMenuItemById($pdo, $id);
     if (!$data_before) {
         json_error('未找到要删除的商品。', 404);
+    }
+    
+    // [冲突解决] 检查此商品是否为“次卡商品”
+    if (is_pass_product_locked($pdo, $id, $data_before['product_code'] ?? null)) {
+        json_error(
+            '操作被禁止：此商品是一个激活的“次卡售卖商品”。请前往 [POS 管理] -> [会员次卡] -> [次卡方案管理] 页面将其“下架”或“删除”，以确保数据一致性。',
+            403 // 403 Forbidden
+        );
     }
 
     // [A2.2 UTC FIX] 
@@ -437,6 +484,15 @@ function handle_variant_save(PDO $pdo, array $config, array $input_data): void {
     $is_default      = !empty($d['is_default']) ? 1 : 0;
     $product_id      = isset($d['product_id']) && $d['product_id'] !== '' ? (int)$d['product_id'] : null;
     if ($menu_item_id <= 0 || $variant_name_zh === '' || $variant_name_es === '' || $price_eur <= 0) json_error('缺少必填项或价格无效', 400);
+    
+    // [冲突解决] 检查此商品是否为“次卡商品”
+    if (is_pass_product_locked($pdo, $menu_item_id, null)) {
+        json_error(
+            '操作被禁止：此规格所属的商品是一个激活的“次卡售卖商品”。请前往 [POS 管理] -> [会员次卡] -> [次卡方案管理] 页面进行修改。',
+            403 // 403 Forbidden
+        );
+    }
+    
     $pdo->beginTransaction();
     if ($product_id) {
         $stmt = $pdo->prepare("SELECT product_code FROM kds_products WHERE id = ? AND deleted_at IS NULL");
@@ -466,6 +522,19 @@ function handle_variant_save(PDO $pdo, array $config, array $input_data): void {
 }
 function handle_variant_delete(PDO $pdo, array $config, array $input_data): void {
     $id = $input_data['id'] ?? json_error('缺少 id', 400);
+    
+    // [冲突解决] 检查此商品是否为“次卡商品”
+    $stmt_find = $pdo->prepare("SELECT menu_item_id FROM pos_item_variants WHERE id = ?");
+    $stmt_find->execute([(int)$id]);
+    $menu_item_id = $stmt_find->fetchColumn();
+    
+    if ($menu_item_id && is_pass_product_locked($pdo, $menu_item_id, null)) {
+        json_error(
+            '操作被禁止：此规格所属的商品是一个激活的“次卡售卖商品”。请前往 [POS 管理] -> [会员次卡] -> [次卡方案管理] 页面进行修改。',
+            403 // 403 Forbidden
+        );
+    }
+
     // [A2.2 UTC FIX] 
     // pos_item_variants.deleted_at 是 timestamp(0)。必须使用 'Y-m-d H:i:s'
     // [GEMINI V3 FIX] 数据库为 datetime(6)，使用 .u
