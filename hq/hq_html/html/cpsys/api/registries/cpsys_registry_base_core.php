@@ -394,8 +394,8 @@ function handle_kds_user_save(PDO $pdo, array $config, array $input_data): void 
             ];
 
             if ($password !== '') {
-                // 与原代码保持一致：使用 sha256
-                $params[':password_hash'] = hash('sha256', $password);
+                // [SECURITY FIX 2025-11-17] Use secure Bcrypt hashing instead of SHA256
+                $params[':password_hash'] = password_hash($password, PASSWORD_BCRYPT);
                 $sql = "UPDATE kds_users
                            SET display_name = :display_name,
                                is_active    = :is_active,
@@ -434,8 +434,8 @@ function handle_kds_user_save(PDO $pdo, array $config, array $input_data): void 
                 ':username'     => $username,
                 ':display_name' => $display,
                 ':is_active'    => $is_active,
-                // 与原有实现保持一致：sha256
-                ':password_hash'=> hash('sha256', $password),
+                // [SECURITY FIX 2025-11-17] Use secure Bcrypt hashing instead of SHA256
+                ':password_hash'=> password_hash($password, PASSWORD_BCRYPT),
             ];
 
             $sql = "INSERT INTO kds_users
