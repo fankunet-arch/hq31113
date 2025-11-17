@@ -140,6 +140,29 @@ function handle_pass_plan_save(PDO $pdo, array $config, array $input_data): void
         json_error('方案名称 (ZH) 不能为空。', 400);
     }
 
+    // [需求3] 校验：禁止将"优惠卡"商品作为可核销饮品（防止卡买卡）
+    $eligible_beverage_ids = $rules['eligible_beverage_ids'] ?? [];
+    if (!empty($eligible_beverage_ids)) {
+        // 查询这些商品ID中是否包含"优惠卡"商品（具有 pass_product 标签）
+        $placeholders = implode(',', array_fill(0, count($eligible_beverage_ids), '?'));
+        $sql_check_pass = "
+            SELECT pmi.name_zh
+            FROM pos_menu_items pmi
+            JOIN pos_product_tag_map ptm ON pmi.id = ptm.product_id
+            JOIN pos_tags pt ON ptm.tag_id = pt.tag_id
+            WHERE pmi.id IN ($placeholders)
+            AND pt.tag_code = 'pass_product'
+            AND pmi.deleted_at IS NULL
+            LIMIT 1
+        ";
+        $stmt_check_pass = $pdo->prepare($sql_check_pass);
+        $stmt_check_pass->execute($eligible_beverage_ids);
+        $pass_product_name = $stmt_check_pass->fetchColumn();
+
+        if ($pass_product_name !== false) {
+            json_error('操作被禁止：不能将"优惠卡"商品（如：' . htmlspecialchars($pass_product_name) . '）设置为可核销商品。优惠卡只能用于核销普通商品，不能用于购买其他优惠卡。', 400);
+        }
+    }
 
     $pdo->beginTransaction();
     try {

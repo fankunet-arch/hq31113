@@ -101,8 +101,12 @@ $tag_id_paid_addon = find_tag_id_by_code('paid_addon', $all_pos_tags);
                 <div class="card-header">1. 方案详情 (定义次卡)</div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <label for="name" class="form-label">方案名称 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="name" name="name" placeholder="例如: 10次奶茶卡" required>
+                        <label for="name_zh" class="form-label">方案名称 (中文) <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name_zh" name="name_zh" placeholder="例如: 10次奶茶卡" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="name_es" class="form-label">方案名称 (西班牙语) <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name_es" name="name_es" placeholder="Ej: Tarjeta de 10 bebidas" required>
                     </div>
                     <div class="row g-3">
                         <div class="col-md-6">

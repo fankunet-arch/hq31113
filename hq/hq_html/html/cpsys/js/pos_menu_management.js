@@ -136,8 +136,12 @@ $(document).ready(function() {
                         alert('删除失败: ' + response.message);
                     }
                 },
-                error: function() {
-                    alert('删除过程中发生网络或服务器错误。');
+                error: function(jqXHR) {
+                    if (jqXHR.responseJSON && jqXHR.responseJSON.message) {
+                        alert('操作失败: ' + jqXHR.responseJSON.message);
+                    } else {
+                        alert('删除过程中发生网络或服务器错误。');
+                    }
                 }
             });
         }

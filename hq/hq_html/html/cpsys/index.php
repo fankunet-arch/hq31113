@@ -317,7 +317,28 @@ try {
                 $data['pass_plans'] = getAllPassPlans($pdo);
             }
             $data['all_pos_tags'] = getAllPosTags($pdo);
-            $data['all_menu_items'] = getAllMenuItems($pdo, null);
+
+            // 加载所有菜单项，但排除"优惠卡"商品（防止卡买卡）
+            $all_menu_items_raw = getAllMenuItems($pdo, null);
+            $data['all_menu_items'] = [];
+
+            // 获取所有标记为 pass_product 的商品ID
+            $stmt_pass_products = $pdo->prepare("
+                SELECT DISTINCT product_id
+                FROM pos_product_tag_map ptm
+                JOIN pos_tags pt ON ptm.tag_id = pt.tag_id
+                WHERE pt.tag_code = 'pass_product'
+            ");
+            $stmt_pass_products->execute();
+            $pass_product_ids = $stmt_pass_products->fetchAll(PDO::FETCH_COLUMN);
+
+            // 过滤掉优惠卡商品
+            foreach ($all_menu_items_raw as $item) {
+                if (!in_array($item['id'], $pass_product_ids)) {
+                    $data['all_menu_items'][] = $item;
+                }
+            }
+
             $data['all_pos_addons'] = getAllPosAddons($pdo);
             $data['pos_categories'] = getAllPosCategories($pdo);
 
