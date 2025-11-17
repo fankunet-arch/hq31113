@@ -63,7 +63,7 @@ $(document).ready(function() {
                     const data = response.data;
                     
                     // 1. 方案详情 (pass_plans)
-                    $('#name').val(data.plan.name);
+                    $('#name_zh').val(data.plan.name);
                     $('#total_uses').val(data.plan.total_uses);
                     $('#validity_days').val(data.plan.validity_days);
                     $('#max_uses_per_order').val(data.plan.max_uses_per_order);
@@ -72,8 +72,11 @@ $(document).ready(function() {
 
                     // 2. 销售设置 (pos_menu_items / variants)
                     if (data.pos_item) {
+                        $('#name_es').val(data.pos_item.name_es || data.plan.name); // 填充西语
                         skuInput.val(data.pos_item.product_code);
                         $('#sale_category_id').val(data.pos_item.pos_category_id);
+                    } else {
+                        $('#name_es').val(data.plan.name); // 回退
                     }
                     if (data.pos_variant) {
                         $('#sale_price').val(data.pos_variant.price_eur);
@@ -103,7 +106,8 @@ $(document).ready(function() {
             // 1. 方案详情
             plan_details: {
                 id: dataIdInput.val(),
-                name: $('#name').val(),
+                name_zh: $('#name_zh').val(),
+                name_es: $('#name_es').val(),
                 total_uses: $('#total_uses').val(),
                 validity_days: $('#validity_days').val(),
                 max_uses_per_order: $('#max_uses_per_order').val(),
